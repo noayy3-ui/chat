@@ -15,6 +15,7 @@
       justify-content: center;
       font-family: Arial, sans-serif;
       color: white;
+      overflow: hidden;
     }
 
     #startBtn {
@@ -23,6 +24,7 @@
       border: none;
       border-radius: 12px;
       cursor: pointer;
+      z-index: 10;
     }
 
     #warning {
@@ -31,9 +33,10 @@
       left: 50%;
       transform: translateX(-50%);
       font-size: 12px;
-      opacity: 0.8;
+      opacity: 0.85;
       text-align: center;
       max-width: 600px;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -42,42 +45,70 @@
 
   <div id="warning">
     ⚠️ Warning: Rapid flashing lights and loud audio can trigger seizures or discomfort.
-    Use carefully and lower your volume before starting.
+    Lower your volume before starting.
   </div>
 
   <audio id="sound" src="yougotmail.mp3" preload="auto"></audio>
 
   <script>
     const btn = document.getElementById('startBtn');
-    const audio = document.getElementById('sound');
+    const audioEl = document.getElementById('sound');
 
-    let flashing = false;
     let flashInterval;
+    let audioCtx;
+    let gainNode;
+    let source;
 
-    function startMadness() {
-      if (flashing) return;
-      flashing = true;
-
-      // Try to make it loud but respect browser limits
-      audio.volume = 1.0;
-
-      // Rapid flash (adjust speed if needed)
+    function startFlashing() {
       let isBlack = true;
       flashInterval = setInterval(() => {
-        document.body.style.background = isBlack ? 'white' : 'black';
-        document.body.style.color = isBlack ? 'black' : 'white';
+        if (isBlack) {
+          document.body.style.background = '#ffffff';
+          document.body.style.color = '#000000';
+        } else {
+          document.body.style.background = '#000000';
+          document.body.style.color = '#ffffff';
+        }
         isBlack = !isBlack;
-      }, 60); // ~16 flashes/sec
+      }, 40); // faster flash (~25/sec)
+    }
 
-      // Loop the sound aggressively
-      setInterval(() => {
-        try {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        } catch (e) {}
-      }, 250);
+    async function startAudioLoop() {
+      // Web Audio for maximum loudness control
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      gainNode = audioCtx.createGain();
 
+      // Boost gain (browser/device may still limit actual volume)
+      gainNode.gain.value = 2.5;
+      gainNode.connect(audioCtx.destination);
+
+      const response = await fetch('yougotmail.mp3');
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      function playLoop() {
+        source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(gainNode);
+        source.onended = playLoop; // play again after full finish
+        source.start(0);
+      }
+
+      playLoop();
+    }
+
+    async function startMadness() {
       btn.style.display = 'none';
+
+      // Try fullscreen for stronger effect
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (e) {}
+
+      startFlashing();
+      startAudioLoop();
     }
 
     btn.addEventListener('click', startMadness);
