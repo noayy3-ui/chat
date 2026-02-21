@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flash & Sound</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    #startBtn {
+      padding: 16px 28px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    #warning {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      opacity: 0.8;
+      text-align: center;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+  <button id="startBtn">Start</button>
+
+  <div id="warning">
+    ⚠️ Warning: Rapid flashing lights and loud audio can trigger seizures or discomfort.
+    Use carefully and lower your volume before starting.
+  </div>
+
+  <audio id="sound" src="yougotmail.mp3" preload="auto"></audio>
+
+  <script>
+    const btn = document.getElementById('startBtn');
+    const audio = document.getElementById('sound');
+
+    let flashing = false;
+    let flashInterval;
+
+    function startMadness() {
+      if (flashing) return;
+      flashing = true;
+
+      // Try to make it loud but respect browser limits
+      audio.volume = 1.0;
+
+      // Rapid flash (adjust speed if needed)
+      let isBlack = true;
+      flashInterval = setInterval(() => {
+        document.body.style.background = isBlack ? 'white' : 'black';
+        document.body.style.color = isBlack ? 'black' : 'white';
+        isBlack = !isBlack;
+      }, 60); // ~16 flashes/sec
+
+      // Loop the sound aggressively
+      setInterval(() => {
+        try {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        } catch (e) {}
+      }, 250);
+
+      btn.style.display = 'none';
+    }
+
+    btn.addEventListener('click', startMadness);
+  </script>
+</body>
+</html>
