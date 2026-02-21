@@ -9,22 +9,45 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      background: black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: Arial, sans-serif;
-      color: white;
+      width: 100%;
       overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: black;
+      color: white;
+    }
+
+    /* FULLSCREEN FLASH LAYER */
+    #flashLayer {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: black;
+      z-index: 1;
     }
 
     #startBtn {
-      padding: 16px 28px;
-      font-size: 18px;
+      position: relative;
+      z-index: 5;
+      padding: 18px 32px;
+      font-size: 20px;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
-      z-index: 10;
+    }
+
+    #ui {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #ui > * {
+      pointer-events: auto;
     }
 
     #warning {
@@ -33,82 +56,75 @@
       left: 50%;
       transform: translateX(-50%);
       font-size: 12px;
-      opacity: 0.85;
+      opacity: 0.9;
       text-align: center;
       max-width: 600px;
-      pointer-events: none;
+      z-index: 6;
     }
   </style>
 </head>
 <body>
-  <button id="startBtn">Start</button>
+  <div id="flashLayer"></div>
+
+  <div id="ui">
+    <button id="startBtn">Start</button>
+  </div>
 
   <div id="warning">
     ⚠️ Warning: Rapid flashing lights and loud audio can trigger seizures or discomfort.
     Lower your volume before starting.
   </div>
 
-  <audio id="sound" src="yougotmail.mp3" preload="auto"></audio>
-
   <script>
     const btn = document.getElementById('startBtn');
-    const audioEl = document.getElementById('sound');
+    const flashLayer = document.getElementById('flashLayer');
 
-    let flashInterval;
     let audioCtx;
     let gainNode;
-    let source;
+    let audioBuffer;
 
     function startFlashing() {
       let isBlack = true;
-      flashInterval = setInterval(() => {
-        if (isBlack) {
-          document.body.style.background = '#ffffff';
-          document.body.style.color = '#000000';
-        } else {
-          document.body.style.background = '#000000';
-          document.body.style.color = '#ffffff';
-        }
+      setInterval(() => {
+        flashLayer.style.background = isBlack ? '#ffffff' : '#000000';
         isBlack = !isBlack;
-      }, 40); // faster flash (~25/sec)
+      }, 25); // VERY fast (~40 flashes/sec)
     }
 
-    async function startAudioLoop() {
-      // Web Audio for maximum loudness control
+    async function setupAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       gainNode = audioCtx.createGain();
 
-      // Boost gain (browser/device may still limit actual volume)
-      gainNode.gain.value = 2.5;
+      // MUCH louder (still limited by device/browser safety)
+      gainNode.gain.value = 5.0;
       gainNode.connect(audioCtx.destination);
 
       const response = await fetch('yougotmail.mp3');
       const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    }
 
-      function playLoop() {
-        source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(gainNode);
-        source.onended = playLoop; // play again after full finish
-        source.start(0);
-      }
-
-      playLoop();
+    function playOne() {
+      const src = audioCtx.createBufferSource();
+      src.buffer = audioBuffer;
+      src.connect(gainNode);
+      src.onended = playOne; // restart only after FULL finish
+      src.start(0);
     }
 
     async function startMadness() {
       btn.style.display = 'none';
 
-      // Try fullscreen for stronger effect
+      // fullscreen attempt
       try {
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
         }
       } catch (e) {}
 
+      await setupAudio();
+      playOne();
       startFlashing();
-      startAudioLoop();
     }
 
     btn.addEventListener('click', startMadness);
